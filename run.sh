@@ -47,9 +47,30 @@ command -v zenity &>/dev/null || {
 # Critical dependencies
 install_if_missing python3 python3 true
 
-# Optional dependencies
+# Check internet connection first
 if check_internet; then
-    install_if_missing git git false
+
+    # Ensure git is installed before repo update
+    install_if_missing git git true
+
+    # Check for repo updates as top priority
+    if [ -d ".git" ]; then
+        git fetch || show_critical_error "Failed to fetch repo updates."
+        LOCAL=$(git rev-parse @)
+        REMOTE=$(git rev-parse @{u})
+
+        if [ "$LOCAL" != "$REMOTE" ]; then
+            CHANGED_FILES=$(git diff --name-only "$LOCAL" "$REMOTE")
+            git pull || show_critical_error "Failed to pull updates from remote."
+
+            if echo "$CHANGED_FILES" | grep -q "$(basename "$0")"; then
+                echo "🔁 Script was updated. Restarting..."
+                exec "$0" "$@"
+            fi
+        fi
+    fi
+
+    # Optional dependencies
     install_if_missing pip python3-pip false
     install_if_missing curl curl false
 
@@ -58,16 +79,7 @@ if check_internet; then
         export PATH="$HOME/.local/bin:$PATH"
     fi
 
-    # Git repo update
-    if [ -d ".git" ]; then
-        git fetch && {
-            LOCAL=$(git rev-parse @)
-            REMOTE=$(git rev-parse @{u})
-            [ "$LOCAL" != "$REMOTE" ] && git pull
-        }
-    fi
-
-    # Update dependencies
+    # Update project dependencies
     if command -v poetry &>/dev/null; then
         poetry update || true
     fi
