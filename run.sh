@@ -79,9 +79,12 @@ if check_internet; then
         export PATH="$HOME/.local/bin:$PATH"
     fi
 
-    # Update project dependencies
+    # Install project dependencies first
     if command -v poetry &>/dev/null; then
-        poetry update || true
+        poetry install || show_critical_error "Dependency installation failed via Poetry."
+
+        # Then optionally update them
+        poetry update || echo "⚠️ Poetry update failed. Continuing with existing versions."
     fi
 fi
 
