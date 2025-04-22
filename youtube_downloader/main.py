@@ -82,13 +82,16 @@ def run_download(youtube_url):
 
         # Wrap URL in quotes to handle special characters
         youtube_url = f'"{youtube_url}"'
+        # Decide whether to include --no-playlist
+        playlist_option = '--yes-playlist' if playlist_var.get() else '--no-playlist'
+
 
         # Construct the yt-dlp command
         command = (
-            f'yt-dlp -f "bestvideo[vcodec^=avc1][height<=600][width<=1024][fps<=30]+bestaudio[ext=m4a]/best[vcodec^=avc1]" '
+            f'yt-dlp --verbose -f "bestvideo[vcodec^=avc1][height<=600][width<=1024][fps<=30]+bestaudio[ext=m4a]/best[vcodec^=avc1]" '
             f'--merge-output-format mp4 '
             f'-o "{OUTPUT_PATH}/%(title)s.%(ext)s" '
-            f'--no-playlist {youtube_url}'
+            f'{playlist_option} {youtube_url}'
         )
 
 
@@ -123,6 +126,9 @@ def update_status(message):
 # Clear URL entry function
 def clear_url_entry():
     url_entry.delete(0, tk.END)
+    url_entry.bind("<Control-a>", select_all)  # Windows/Linux
+    url_entry.bind("<Command-a>", select_all)  # macOS
+
 
 # Center the window
 def center_window(window, width, height):
@@ -133,6 +139,12 @@ def center_window(window, width, height):
     window.geometry(f'{width}x{height}+{position_right}+{position_top}')
     window.resizable(False, False)
 
+def select_all(event):
+    event.widget.select_range(0, tk.END)
+    event.widget.icursor(tk.END)
+    return "break"
+
+
 # Tkinter GUI setup
 root = tk.Tk()
 root.title("Descărcător YouTube")
@@ -140,9 +152,26 @@ window_width = 900
 window_height = 650
 center_window(root, window_width, window_height)
 
+
 # Main frame
 main_frame = ttk.Frame(root, padding="30")
 main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+
+clear_button = ttk.Button(main_frame, text="Sterge", command=clear_url_entry)
+clear_button.grid(row=4, column=1, padx=(20, 0), pady=(0, 10))
+
+
+playlist_var = tk.BooleanVar(value=False)
+
+playlist_checkbox = tk.Checkbutton(
+    main_frame,
+    text="Playlist (bifeaza)",
+    variable=playlist_var,
+    font=("Arial", 22),
+    padx=20,
+    pady=10
+)
+playlist_checkbox.grid(row=4, column=0, columnspan=2, pady=(0, 10), sticky=tk.W)
 
 # YouTube URL Entry
 url_label = ttk.Label(main_frame, text="URL YouTube:", font=("Arial", 32, "bold"))
