@@ -94,7 +94,6 @@ def run_download(youtube_url):
             f'{playlist_option} {youtube_url}'
         )
 
-
         # Run the command using shell to interpret correctly
         process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, shell=True)
 
