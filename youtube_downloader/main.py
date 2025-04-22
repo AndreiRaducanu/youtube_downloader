@@ -88,7 +88,7 @@ def run_download(youtube_url):
 
         # Construct the yt-dlp command
         command = (
-            f'yt-dlp --verbose -f "bestvideo[vcodec^=avc1][height<=600][width<=1024][fps<=30]+bestaudio[ext=m4a]/best[vcodec^=avc1]" '
+            f'yt-dlp --cookies-from-browser firefox --verbose -f "bestvideo[vcodec^=avc1][height<=600][width<=1024][fps<=30]+bestaudio[ext=m4a]/best[vcodec^=avc1]" '
             f'--merge-output-format mp4 '
             f'-o "{OUTPUT_PATH}/%(title)s.%(ext)s" '
             f'{playlist_option} {youtube_url}'
@@ -164,7 +164,7 @@ playlist_var = tk.BooleanVar(value=False)
 
 playlist_checkbox = tk.Checkbutton(
     main_frame,
-    text="Playlist (bifeaza)",
+    text="DESCARCA MAI MULTE MELODII DEODATA(BIFEAZA)",
     variable=playlist_var,
     font=("Arial", 22),
     padx=20,
