@@ -164,7 +164,7 @@ playlist_var = tk.BooleanVar(value=False)
 
 playlist_checkbox = tk.Checkbutton(
     main_frame,
-    text="Playlist (bifeaza)",
+    text="Playlist (bifeaza1)",
     variable=playlist_var,
     font=("Arial", 22),
     padx=20,
