@@ -1,122 +1,141 @@
+import glob
 import subprocess
+import sys
 import tkinter as tk
 from tkinter import ttk
 import threading
 import os
 from pathlib import Path
+import traceback
 
-# Function to get the correct Desktop path based on the operating system
+# Error logging function
+def log_error():
+    with open("error_log.txt", "w") as f:
+        traceback.print_exc(file=f)
+
+sys.excepthook = lambda *args: log_error()
+
+# Update libraries function
+def update_libraries():
+    try:
+        # Update pip itself first
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "pip", "--no-input"])
+
+        # Update specific libraries
+        libraries = ["yt-dlp"]
+        for lib in libraries:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", lib, "--no-input"])
+        print("Libraries updated successfully!")
+    except Exception as e:
+        print(f"Failed to update libraries: {e}")
+
+# Run update on start
+update_libraries()
+
+# Get desktop path based on OS
 def get_desktop_path():
-    if os.name == 'nt':  # Windows
+    if os.name == 'nt':
         desktop = Path(os.environ.get('USERPROFILE', '')) / 'Desktop'
-    else:  # Linux or MacOS
+    else:
         desktop = Path(os.environ.get('HOME', '')) / 'Desktop'
-    
     return desktop
 
-# Function to ensure the directory exists on the Desktop
+# Ensure the output directory exists
 def ensure_directory_exists():
     desktop_path = get_desktop_path()
-    # Define the path to MUZICA_TRASA
     output_path = desktop_path / 'MUZICA_TRASA'
-
-    # Create the directory if it does not exist
     if not output_path.exists():
         output_path.mkdir(parents=True, exist_ok=True)
-
     return str(output_path)
 
-# Set the OUTPUT_PATH to the correct path
 OUTPUT_PATH = ensure_directory_exists()
 
-
+# Download video function
 def download_youtube_video():
-    """
-    Trigger the YouTube video download process in a separate thread.
-    """
     youtube_url = url_entry.get()
-
     if not youtube_url:
         update_status("Vă rugăm să introduceți un URL YouTube.")
         return
-
-    # Start a new thread to keep the UI responsive
     threading.Thread(target=run_download, args=(youtube_url,), daemon=True).start()
 
+def cleanup_m4a_files():
+    """Scan the output directory and delete any .m4a files"""
+    try:
+        m4a_files = glob.glob(os.path.join(OUTPUT_PATH, '*.m4a'))
+        for file_path in m4a_files:
+            try:
+                os.remove(file_path)
+                print(f"Deleted temporary file: {file_path}")
+            except Exception as e:
+                print(f"Could not delete {file_path}: {e}")
+        return len(m4a_files)
+    except Exception as e:
+        print(f"Error during cleanup: {e}")
+        return 0
 
+
+# Run the yt-dlp command
 def run_download(youtube_url):
-    """
-    Execute the yt-dlp command and update the status dynamically.
-    """
     try:
         update_status("Descărcare în curs... Vă rugăm să așteptați.")
-        # Set the status box to orange while downloading
         status_box.config(bg="orange")
 
+        # Wrap URL in quotes to handle special characters
+        youtube_url = f'"{youtube_url}"'
+
         # Construct the yt-dlp command
-        command = [
-            "yt-dlp",
-            "-f", "bestvideo[vcodec^=avc1][height<=600][width<=1024][fps<=30]+bestaudio[ext=m4a]/best[vcodec^=avc1][ext=mp4]",  # Select videos encoded with H.264
-            "--merge-output-format", "mp4",  # Ensure output is in MP4 format
-            "-o", f"{OUTPUT_PATH}/%(title)s.%(ext)s",  # Set output path and naming
-            "--no-playlist",  # Disable playlist downloadingeroar
-            youtube_url
-        ]
+        command = (
+            f'yt-dlp -f "bestvideo[vcodec^=avc1][height<=600][width<=1024][fps<=30]+bestaudio[ext=m4a]/best[vcodec^=avc1]" '
+            f'--merge-output-format mp4 '
+            f'-o "{OUTPUT_PATH}/%(title)s.%(ext)s" '
+            f'--no-playlist {youtube_url}'
+        )
 
 
-        # Run the command
-        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        # Run the command using shell to interpret correctly
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, shell=True)
 
-        # Dynamically update the status as output is received
+        # Capture output dynamically
         for line in iter(process.stdout.readline, ""):
             update_status(line.strip())
 
         process.wait()
 
+        # deleted_files = cleanup_m4a_files()
+        # if deleted_files > 0:
+        #     update_status(f"Șters {deleted_files} fișiere temporare .m4a")
+
         if process.returncode == 0:
             update_status(f"Descărcare finalizată cu succes! Fisier salvat in {OUTPUT_PATH}")
-            status_box.config(bg="green")  # Set the status box to green when download finishes
+            status_box.config(bg="green")
             clear_url_entry()
         else:
-            update_status("A apărut o eroare în timpul descărcării.")
-            status_box.config(bg="red")  # Set to red in case of an error
+            update_status(f"A apărut o eroare. Cod de ieșire: {process.returncode}")
+            status_box.config(bg="red")
     except Exception as e:
-        update_status(f"A apărut o eroare neașteptată: {str(e)}")
-        status_box.config(bg="red")  # Set to red if there is an exception
+        update_status(f"Eroare neașteptată: {str(e)}")
+        status_box.config(bg="red")
 
-
+# Update status function
 def update_status(message):
-    """
-    Update the status text in the UI dynamically.
-    """
     status_text.set(message)
 
-
+# Clear URL entry function
 def clear_url_entry():
-    """
-    Clear the URL entry field.
-    """
     url_entry.delete(0, tk.END)
 
-
+# Center the window
 def center_window(window, width, height):
     screen_width = window.winfo_screenwidth()
     screen_height = window.winfo_screenheight()
-    
-    # Calculate position x, y
     position_top = int(screen_height / 2 - height / 2)
     position_right = int(screen_width / 2 - width / 2)
-    
-    # Set the geometry of the window
     window.geometry(f'{width}x{height}+{position_right}+{position_top}')
     window.resizable(False, False)
-
 
 # Tkinter GUI setup
 root = tk.Tk()
 root.title("Descărcător YouTube")
-
-# Center the window and make it bigger
 window_width = 900
 window_height = 650
 center_window(root, window_width, window_height)
@@ -131,7 +150,7 @@ url_label.grid(row=0, column=0, sticky=tk.W, pady=(0, 10), columnspan=2)
 url_entry = ttk.Entry(main_frame, font=("Arial", 22), width=50)
 url_entry.grid(row=1, column=0, columnspan=2, pady=(0, 10), sticky=(tk.W, tk.E))
 
-# Create style Object
+# Button styling
 style = ttk.Style()
 style.configure('TButton', font=('calibri', 20, 'bold'), borderwidth='4')
 style.map('TButton', foreground=[('active', '!disabled', 'green')], background=[('active', 'black')])
@@ -153,11 +172,10 @@ status_label = ttk.Label(
 )
 status_label.grid(row=3, column=0, columnspan=2, pady=20, sticky=(tk.W, tk.E))
 
-# Bottom status box (use tk.Label instead of ttk.Label)
+# Bottom status box
 status_box = tk.Label(root, text="", relief=tk.SUNKEN, height=2)
 status_box.grid(row=1, column=0, sticky=(tk.W, tk.E), padx=30, pady=10)
 
-# Adjust column weights for resizing
 main_frame.columnconfigure(1, weight=1)
 
 # Initialize status
