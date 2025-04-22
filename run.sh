@@ -45,7 +45,18 @@ command -v zenity &>/dev/null || {
 }
 
 # Critical dependencies
+# Critical Python runtime
 install_if_missing python3 python3 true
+
+# Check if tkinter is available
+python3 -c "import tkinter" 2>/dev/null || {
+    echo "Installing missing tkinter..."
+    sudo apt update && sudo apt install -y python3-tk || {
+        show_critical_error "tkinter is required but could not be installed."
+        exit 1
+    }
+}
+
 
 # Check internet connection first
 if check_internet; then
